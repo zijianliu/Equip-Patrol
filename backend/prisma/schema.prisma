@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique
+  password      String
+  name          String
+  role          String   @default("USER")
+  phone         String?
+  email         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  inspectionPlans  InspectionPlan[]  @relation("PlanOwner")
+  assignedTasks    InspectionTask[]  @relation("TaskAssignee")
+  assignedOrders   WorkOrder[]       @relation("OrderAssignee")
+}
+
+model Device {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  name            String
+  park            String
+  building        String
+  floor           String
+  type            String
+  status          String   @default("NORMAL")
+  lastInspectedAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  inspectionPlans   InspectionPlanDevice[]
+  inspectionTasks   InspectionTask[]
+  workOrders        WorkOrder[]
+}
+
+model InspectionPlan {
+  id          Int      @id @default(autoincrement())
+  name        String
+  cycle       String
+  startTime   DateTime
+  endTime     DateTime
+  status      String   @default("ACTIVE")
+  ownerId     Int
+  owner       User     @relation("PlanOwner", fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  devices     InspectionPlanDevice[]
+  tasks       InspectionTask[]
+}
+
+model InspectionPlanDevice {
+  id              Int              @id @default(autoincrement())
+  planId          Int
+  deviceId        Int
+  plan            InspectionPlan   @relation(fields: [planId], references: [id])
+  device          Device           @relation(fields: [deviceId], references: [id])
+
+  @@unique([planId, deviceId])
+}
+
+model InspectionTask {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  planId          Int
+  plan            InspectionPlan @relation(fields: [planId], references: [id])
+  deviceId        Int
+  device          Device   @relation(fields: [deviceId], references: [id])
+  assigneeId      Int
+  assignee        User     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  scheduledAt     DateTime
+  completedAt     DateTime?
+  status          String   @default("PENDING")
+  remark          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  checkItems      InspectionCheckItem[]
+  images          TaskImage[]
+  workOrder       WorkOrder?
+}
+
+model TaskImage {
+  id        Int            @id @default(autoincrement())
+  taskId    Int
+  task      InspectionTask @relation(fields: [taskId], references: [id])
+  url       String
+  createdAt DateTime       @default(now())
+}
+
+model InspectionCheckItem {
+  id              Int      @id @default(autoincrement())
+  taskId          Int
+  task            InspectionTask @relation(fields: [taskId], references: [id])
+  name            String
+  result          String
+  remark          String?
+  createdAt       DateTime @default(now())
+
+  @@unique([taskId, name])
+}
+
+model WorkOrder {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  deviceId        Int
+  device          Device   @relation(fields: [deviceId], references: [id])
+  taskId          Int      @unique
+  task            InspectionTask @relation(fields: [taskId], references: [id])
+  description     String
+  status          String   @default("PENDING")
+  assigneeId      Int?
+  assignee        User?    @relation("OrderAssignee", fields: [assigneeId], references: [id])
+  handleRemark    String?
+  closedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
