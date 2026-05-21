@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Input, Select, Space, Popconfirm, message, Tag, Switch } from 'antd';
-import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { inspectionPlanApi } from '../../services/inspectionPlan';
 import { InspectionPlan, PlanStatus, CycleType } from '../../types';
@@ -19,42 +19,55 @@ const InspectionPlanList: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<string | undefined>();
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchStatus, setSearchStatus] = useState<string | undefined>();
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await inspectionPlanApi.getList({
         page,
         pageSize,
-        keyword: keyword || undefined,
-        status,
+        keyword: searchKeyword || undefined,
+        status: searchStatus,
       });
       if (res.success && res.data) {
         setData(res.data.list);
         setTotal(res.data.total);
       }
+    } catch (error) {
+      console.error('Fetch plans error:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, searchKeyword, searchStatus]);
 
   useEffect(() => {
     fetchData();
-  }, [page, pageSize]);
+  }, [fetchData]);
 
   const handleSearch = () => {
+    setSearchKeyword(keyword);
+    setSearchStatus(status);
     setPage(1);
-    fetchData();
   };
 
   const handleReset = () => {
     setKeyword('');
     setStatus(undefined);
+    setSearchKeyword('');
+    setSearchStatus(undefined);
     setPage(1);
-    setTimeout(fetchData, 0);
+    setTimeout(() => fetchData(), 0);
   };
 
   const handleToggleStatus = async (record: InspectionPlan, checked: boolean) => {
+    if (togglingId !== null) {
+      message.warning('操作进行中，请稍候...');
+      return;
+    }
+    setTogglingId(record.id);
     try {
       const res = await inspectionPlanApi.toggleStatus(record.id);
       if (res.success) {
@@ -63,6 +76,8 @@ const InspectionPlanList: React.FC = () => {
       }
     } catch (error) {
       console.error('Toggle status error:', error);
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -127,7 +142,7 @@ const InspectionPlanList: React.FC = () => {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
+      width: 140,
       render: (_: any, record: InspectionPlan) => (
         <Space>
           <Tag color={STATUS_COLORS[record.status]}>
@@ -137,6 +152,8 @@ const InspectionPlanList: React.FC = () => {
             checked={record.status === PlanStatus.ACTIVE}
             onChange={(checked) => handleToggleStatus(record, checked)}
             size="small"
+            loading={togglingId === record.id}
+            disabled={togglingId !== null && togglingId !== record.id}
           />
         </Space>
       ),
@@ -159,6 +176,7 @@ const InspectionPlanList: React.FC = () => {
             size="small"
             icon={<EyeOutlined />}
             onClick={() => navigate(`/inspection-plans/${record.id}`)}
+            disabled={togglingId !== null}
           >
             详情
           </Button>
@@ -167,6 +185,7 @@ const InspectionPlanList: React.FC = () => {
             size="small"
             icon={<EditOutlined />}
             onClick={() => navigate(`/inspection-plans/${record.id}/edit`)}
+            disabled={togglingId !== null}
           >
             编辑
           </Button>
@@ -175,8 +194,9 @@ const InspectionPlanList: React.FC = () => {
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
+            disabled={togglingId !== null}
           >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} disabled={togglingId !== null}>
               删除
             </Button>
           </Popconfirm>
@@ -189,7 +209,7 @@ const InspectionPlanList: React.FC = () => {
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>巡检计划</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/inspection-plans/new')}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/inspection-plans/new')} disabled={togglingId !== null}>
           新增计划
         </Button>
       </div>
@@ -202,6 +222,7 @@ const InspectionPlanList: React.FC = () => {
             onChange={(e) => setKeyword(e.target.value)}
             onSearch={handleSearch}
             style={{ width: 200 }}
+            allowClear
           />
           <Select
             placeholder="计划状态"
@@ -213,10 +234,12 @@ const InspectionPlanList: React.FC = () => {
             <Option value="ACTIVE">启用</Option>
             <Option value="INACTIVE">停用</Option>
           </Select>
-          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch} disabled={togglingId !== null}>
             搜索
           </Button>
-          <Button onClick={handleReset}>重置</Button>
+          <Button icon={<ReloadOutlined />} onClick={handleReset} disabled={togglingId !== null}>
+            重置
+          </Button>
         </Space>
       </div>
 

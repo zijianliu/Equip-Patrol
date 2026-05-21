@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Button, Select, Space, Tag, Empty } from 'antd';
-import { EyeOutlined, ToolOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Table, Button, Input, Select, Space, Tag, Empty } from 'antd';
+import { EyeOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { workOrderApi } from '../../services/workOrder';
 import { WorkOrder, WorkOrderStatus, Role } from '../../types';
@@ -8,6 +8,7 @@ import { STATUS_COLORS, STATUS_LABELS } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
 import dayjs from 'dayjs';
 
+const { Search } = Input;
 const { Option } = Select;
 
 const WorkOrderList: React.FC = () => {
@@ -18,28 +19,49 @@ const WorkOrderList: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<string | undefined>();
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchStatus, setSearchStatus] = useState<string | undefined>();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await workOrderApi.getList({
         page,
         pageSize,
-        status,
+        keyword: searchKeyword || undefined,
+        status: searchStatus,
       });
       if (res.success && res.data) {
         setData(res.data.list);
         setTotal(res.data.total);
       }
+    } catch (error) {
+      console.error('Fetch work orders error:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, searchKeyword, searchStatus]);
 
   useEffect(() => {
     fetchData();
-  }, [page, pageSize, status]);
+  }, [fetchData]);
+
+  const handleSearch = () => {
+    setSearchKeyword(keyword);
+    setSearchStatus(status);
+    setPage(1);
+  };
+
+  const handleReset = () => {
+    setKeyword('');
+    setStatus(undefined);
+    setSearchKeyword('');
+    setSearchStatus(undefined);
+    setPage(1);
+    setTimeout(() => fetchData(), 0);
+  };
 
   const columns = [
     {
@@ -120,17 +142,36 @@ const WorkOrderList: React.FC = () => {
             <Tag color="blue" style={{ marginLeft: 8 }}>仅显示分配给我的工单</Tag>
           )}
         </h2>
-        <Select
-          placeholder="工单状态"
-          value={status}
-          onChange={setStatus}
-          style={{ width: 150 }}
-          allowClear
-        >
-          <Option value="PENDING">待处理</Option>
-          <Option value="PROCESSING">处理中</Option>
-          <Option value="CLOSED">已关闭</Option>
-        </Select>
+      </div>
+
+      <div style={{ marginBottom: 16, padding: 16, background: '#fafafa', borderRadius: 8 }}>
+        <Space wrap>
+          <Search
+            placeholder="搜索工单编号/设备名称/异常描述"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onSearch={handleSearch}
+            style={{ width: 260 }}
+            allowClear
+          />
+          <Select
+            placeholder="工单状态"
+            value={status}
+            onChange={setStatus}
+            style={{ width: 120 }}
+            allowClear
+          >
+            <Option value="PENDING">待处理</Option>
+            <Option value="PROCESSING">处理中</Option>
+            <Option value="CLOSED">已关闭</Option>
+          </Select>
+          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+            搜索
+          </Button>
+          <Button icon={<ReloadOutlined />} onClick={handleReset}>
+            重置
+          </Button>
+        </Space>
       </div>
 
       <Table

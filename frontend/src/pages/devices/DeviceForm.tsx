@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Button, message, Card } from 'antd';
+import { Form, Input, Select, Button, message, Card, Spin, Alert } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { deviceApi } from '../../services/device';
 import { Device } from '../../types';
@@ -13,6 +13,8 @@ interface DeviceFormProps {
 const DeviceForm: React.FC<DeviceFormProps> = ({ mode }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [fetchState, setFetchState] = useState<'loading' | 'success' | 'error'>(mode === 'edit' ? 'loading' : 'success');
+  const [fetchError, setFetchError] = useState('');
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
@@ -23,16 +25,32 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ mode }) => {
   }, [mode, id]);
 
   const fetchDevice = async () => {
-  if (!id) return;
-  try {
-    const res = await deviceApi.getDetail(parseInt(id));
-    if (res.success && res.data) {
-      form.setFieldsValue(res.data);
+    if (!id) return;
+    setFetchState('loading');
+    setFetchError('');
+    try {
+      const res = await deviceApi.getDetail(parseInt(id));
+      if (res.success && res.data) {
+        form.setFieldsValue({
+          code: res.data.code,
+          name: res.data.name,
+          park: res.data.park,
+          building: res.data.building,
+          floor: res.data.floor,
+          type: res.data.type,
+          status: res.data.status,
+        });
+        setFetchState('success');
+      } else {
+        setFetchError('获取设备信息失败：返回数据为空');
+        setFetchState('error');
+      }
+    } catch (error: any) {
+      console.error('Fetch device error:', error);
+      setFetchError(error.message || '获取设备信息失败');
+      setFetchState('error');
     }
-  } catch (error) {
-    console.error('Fetch device error:', error);
-  }
-};
+  };
 
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -55,6 +73,44 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ mode }) => {
     }
   };
 
+  if (fetchState === 'loading') {
+    return (
+      <div>
+        <Button onClick={() => navigate('/devices')} style={{ marginBottom: 16 }}>
+          返回列表
+        </Button>
+        <Card title={mode === 'create' ? '新增设备' : '编辑设备'}>
+          <div style={{ textAlign: 'center', padding: 80 }}>
+            <Spin size="large" tip="正在加载设备数据，请稍候..." />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (fetchState === 'error') {
+    return (
+      <div>
+        <Button onClick={() => navigate('/devices')} style={{ marginBottom: 16 }}>
+          返回列表
+        </Button>
+        <Card title={mode === 'create' ? '新增设备' : '编辑设备'}>
+          <Alert
+            message="数据加载失败"
+            description={fetchError}
+            type="error"
+            showIcon
+            action={
+              <Button size="small" type="primary" onClick={fetchDevice}>
+                重试
+              </Button>
+            }
+          />
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div>
       <Button onClick={() => navigate('/devices')} style={{ marginBottom: 16 }}>
@@ -66,13 +122,14 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ mode }) => {
           layout="vertical"
           onFinish={onFinish}
           style={{ maxWidth: 600 }}
+          initialValues={{ status: 'NORMAL' }}
         >
           <Form.Item
             name="code"
             label="设备编号"
             rules={[{ required: true, message: '请输入设备编号' }]}
           >
-            <Input placeholder="请输入设备编号" />
+            <Input placeholder="请输入设备编号" disabled={mode === 'edit'} />
           </Form.Item>
 
           <Form.Item
@@ -126,7 +183,6 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ mode }) => {
           <Form.Item
             name="status"
             label="运行状态"
-            initialValue="NORMAL"
           >
             <Select placeholder="请选择运行状态">
               <Option value="NORMAL">正常</Option>

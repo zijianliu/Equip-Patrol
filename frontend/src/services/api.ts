@@ -3,7 +3,7 @@ import { message } from 'antd';
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 10000,
+  timeout: 30000,
 });
 
 api.interceptors.request.use(
@@ -31,8 +31,21 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
+      return;
+    }
+    if (error.response?.status === 403) {
+      message.error('权限不足，请联系管理员');
+      return Promise.reject(error);
+    }
+    if (error.response?.data?.message) {
+      message.error(error.response.data.message);
+    } else if (error.response?.data?.errors && error.response.data.errors.length > 0) {
+      const firstError = error.response.data.errors[0];
+      message.error(firstError.msg || firstError.message || '请求参数错误');
+    } else if (error.code === 'ECONNABORTED') {
+      message.error('请求超时，请稍后重试');
     } else {
-      message.error(error.response?.data?.message || error.message || '网络错误');
+      message.error(error.message || '网络错误，请稍后重试');
     }
     return Promise.reject(error);
   }

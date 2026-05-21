@@ -11,9 +11,10 @@ router.use(authenticateToken);
 
 router.get(
   '/',
+  requireRoles([Role.ADMIN, Role.INSPECTOR, Role.MAINTENANCE]),
   [
     query('page').optional().isInt({ min: 1 }).withMessage('页码必须大于0'),
-    query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('每页条数必须在1-100之间'),
+    query('pageSize').optional().isInt({ min: 1, max: 1000 }).withMessage('每页条数必须在1-1000之间'),
     query('keyword').optional().isString(),
     query('type').optional().isString(),
     query('status').optional().isString(),
@@ -22,7 +23,7 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { page = 1, pageSize = 10, keyword, type, status, park } = req.query;
@@ -62,7 +63,7 @@ router.get(
   }
 );
 
-router.get('/:id', async (req: AuthRequest, res: Response) => {
+router.get('/:id', requireRoles([Role.ADMIN, Role.INSPECTOR, Role.MAINTENANCE]), async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const device = await prisma.device.findUnique({
     where: { id: parseInt(id) },
@@ -106,7 +107,7 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { code, name, park, building, floor, type, status } = req.body;
@@ -139,7 +140,7 @@ router.put(
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { id } = req.params;

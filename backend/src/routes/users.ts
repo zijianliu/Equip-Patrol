@@ -7,7 +7,7 @@ import { AuthRequest } from '../types';
 const router = Router();
 
 router.use(authenticateToken);
-router.use(requireRoles([Role.ADMIN]));
+router.use(requireRoles([Role.ADMIN, Role.INSPECTOR, Role.MAINTENANCE]));
 
 router.get('/', async (req: AuthRequest, res: Response) => {
   const users = await prisma.user.findMany({

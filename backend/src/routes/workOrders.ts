@@ -15,14 +15,23 @@ router.get(
     query('page').optional().isInt({ min: 1 }),
     query('pageSize').optional().isInt({ min: 1, max: 100 }),
     query('status').optional().isString(),
+    query('keyword').optional().isString(),
   ],
   async (req: AuthRequest, res: Response) => {
-    const { page = 1, pageSize = 10, status } = req.query;
+    const { page = 1, pageSize = 10, status, keyword } = req.query;
     const pageNum = parseInt(page as string);
     const size = parseInt(pageSize as string);
 
     const where: any = {};
     if (status) where.status = status;
+    if (keyword) {
+      where.OR = [
+        { code: { contains: keyword as string } },
+        { description: { contains: keyword as string } },
+        { device: { name: { contains: keyword as string } } },
+        { device: { code: { contains: keyword as string } } },
+      ];
+    }
 
     if (req.user?.role === Role.MAINTENANCE) {
       where.assigneeId = req.user.userId;
@@ -91,7 +100,7 @@ router.put(
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
     }
 
     const { id } = req.params;

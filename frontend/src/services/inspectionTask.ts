@@ -5,6 +5,7 @@ export interface TaskListParams {
   page?: number;
   pageSize?: number;
   status?: string;
+  keyword?: string;
   planId?: number;
 }
 

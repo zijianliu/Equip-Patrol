@@ -5,6 +5,7 @@ export interface WorkOrderListParams {
   page?: number;
   pageSize?: number;
   status?: string;
+  keyword?: string;
 }
 
 export interface UpdateWorkOrderParams {

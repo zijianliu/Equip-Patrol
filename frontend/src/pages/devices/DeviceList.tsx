@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Input, Select, Space, Popconfirm, message, Tag } from 'antd';
-import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { deviceApi } from '../../services/device';
 import { Device, DeviceStatus } from '../../types';
@@ -21,34 +21,43 @@ const DeviceList: React.FC = () => {
   const [type, setType] = useState<string | undefined>();
   const [status, setStatus] = useState<string | undefined>();
   const [park, setPark] = useState<string | undefined>();
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchType, setSearchType] = useState<string | undefined>();
+  const [searchStatus, setSearchStatus] = useState<string | undefined>();
+  const [searchPark, setSearchPark] = useState<string | undefined>();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await deviceApi.getList({
         page,
         pageSize,
-        keyword: keyword || undefined,
-        type,
-        status,
-        park,
+        keyword: searchKeyword || undefined,
+        type: searchType,
+        status: searchStatus,
+        park: searchPark,
       });
       if (res.success && res.data) {
         setData(res.data.list);
         setTotal(res.data.total);
       }
+    } catch (error) {
+      console.error('Fetch devices error:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, searchKeyword, searchType, searchStatus, searchPark]);
 
   useEffect(() => {
     fetchData();
-  }, [page, pageSize]);
+  }, [fetchData]);
 
   const handleSearch = () => {
+    setSearchKeyword(keyword);
+    setSearchType(type);
+    setSearchStatus(status);
+    setSearchPark(park);
     setPage(1);
-    fetchData();
   };
 
   const handleReset = () => {
@@ -56,8 +65,12 @@ const DeviceList: React.FC = () => {
     setType(undefined);
     setStatus(undefined);
     setPark(undefined);
+    setSearchKeyword('');
+    setSearchType(undefined);
+    setSearchStatus(undefined);
+    setSearchPark(undefined);
     setPage(1);
-    setTimeout(fetchData, 0);
+    setTimeout(() => fetchData(), 0);
   };
 
   const handleDelete = async (id: number) => {
@@ -185,6 +198,7 @@ const DeviceList: React.FC = () => {
             onChange={(e) => setKeyword(e.target.value)}
             onSearch={handleSearch}
             style={{ width: 200 }}
+            allowClear
           />
           <Select
             placeholder="设备类型"
@@ -223,7 +237,9 @@ const DeviceList: React.FC = () => {
           <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
             搜索
           </Button>
-          <Button onClick={handleReset}>重置</Button>
+          <Button icon={<ReloadOutlined />} onClick={handleReset}>
+            重置
+          </Button>
         </Space>
       </div>
 
